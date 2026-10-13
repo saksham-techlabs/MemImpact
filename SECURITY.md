@@ -8,8 +8,9 @@ MemImpact is pre-1.0. Security fixes are made on the latest released version onl
 
 Please **do not open a public issue** for security problems. Use GitHub's
 private vulnerability reporting ("Report a vulnerability" under the
-repository's **Security** tab) once the repository is public. Include steps to
-reproduce, the affected version and the impact you expect.
+repository's **Security** tab):
+<https://github.com/saksham-techlabs/MemImpact/security/advisories/new>.
+Include steps to reproduce, the affected version and the impact you expect.
 
 You should receive an acknowledgement within a few days. Please allow a
 reasonable time for a fix before you disclose the issue publicly.

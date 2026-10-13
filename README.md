@@ -103,7 +103,7 @@ MemImpact requires **Node.js 22 or newer** and runs on Windows, macOS and Linux.
 It is not published to npm yet. To use it today, install from source:
 
 ```bash
-git clone <repository-url> memimpact
+git clone https://github.com/saksham-techlabs/MemImpact.git memimpact
 cd memimpact
 npm install
 npm run build

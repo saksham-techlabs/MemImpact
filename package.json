@@ -15,6 +15,14 @@
   ],
   "license": "MIT",
   "author": "Saksham Shrivastava",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saksham-techlabs/MemImpact.git"
+  },
+  "homepage": "https://github.com/saksham-techlabs/MemImpact#readme",
+  "bugs": {
+    "url": "https://github.com/saksham-techlabs/MemImpact/issues"
+  },
   "type": "module",
   "bin": {
     "memimpact": "dist/cli/main.js"
