@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MemImpact configuration",
+  "description": "Configuration for a MemImpact memory impact experiment (version 1). The CLI validator is authoritative; it additionally checks cross-references, no-op variants and secret-looking values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "task", "variants", "runner"],
+  "oneOf": [{ "required": ["memories"] }, { "required": ["memoriesFile"] }],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "task": { "type": "string", "minLength": 1, "description": "The task replayed identically in every run." },
+    "system": { "type": "string", "description": "Optional system prompt placed before the memory block." },
+    "memoryPreamble": { "type": "string", "minLength": 1, "description": "Heading line placed above the rendered memories." },
+    "memories": { "type": "array", "items": { "$ref": "#/$defs/memory" } },
+    "memoriesFile": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path (relative to this config) to a JSON file containing a memory array or { \"memories\": [...] }. It is read, never written."
+    },
+    "variants": { "type": "array", "items": { "$ref": "#/$defs/variant" } },
+    "runner": { "$ref": "#/$defs/runner" },
+    "repetitions": { "type": "integer", "minimum": 1, "maximum": 50, "default": 1 },
+    "compare": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "structured": { "enum": ["auto", "always", "never"], "default": "auto" },
+        "decisionPaths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "ignorePaths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "low": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.05 },
+            "medium": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.2 },
+            "high": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.5 }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": { "type": "string", "minLength": 1, "default": ".memimpact" },
+        "save": { "type": "boolean", "default": true },
+        "storeMemoryContent": { "type": "boolean", "default": true },
+        "storeOutputs": { "type": "boolean", "default": true }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "impactLevel": { "enum": ["none", "low", "medium", "high"] },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "content"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "content": { "type": "string", "minLength": 1 },
+        "tags": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "source": { "type": "string" }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "minImpact": { "$ref": "#/$defs/impactLevel" },
+        "maxImpact": { "$ref": "#/$defs/impactLevel" }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "required": ["id", "type"],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["memoryId"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "type": { "const": "remove" },
+            "description": { "type": "string" },
+            "expect": { "$ref": "#/$defs/expect" },
+            "memoryId": { "type": "string" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["memoryId", "content"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "type": { "const": "replace" },
+            "description": { "type": "string" },
+            "expect": { "$ref": "#/$defs/expect" },
+            "memoryId": { "type": "string" },
+            "content": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["memoryId", "find", "replaceWith"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "type": { "const": "modify" },
+            "description": { "type": "string" },
+            "expect": { "$ref": "#/$defs/expect" },
+            "memoryId": { "type": "string" },
+            "find": { "type": "string", "minLength": 1 },
+            "replaceWith": { "type": "string" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["memory"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "type": { "const": "add" },
+            "description": { "type": "string" },
+            "expect": { "$ref": "#/$defs/expect" },
+            "memory": { "$ref": "#/$defs/memory" }
+          }
+        }
+      ]
+    },
+    "toolCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "type": "string", "minLength": 1 }, "arguments": {} }
+    },
+    "stringList": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "runner": {
+      "type": "object",
+      "required": ["type"],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["rules"],
+          "properties": {
+            "type": { "const": "fixture" },
+            "rules": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "oneOf": [{ "required": ["output"] }, { "required": ["outputs"] }],
+                "properties": {
+                  "when": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "memoryPresent": { "$ref": "#/$defs/stringList" },
+                      "memoryAbsent": { "$ref": "#/$defs/stringList" },
+                      "contextIncludes": { "$ref": "#/$defs/stringList" },
+                      "contextExcludes": { "$ref": "#/$defs/stringList" },
+                      "taskIncludes": { "$ref": "#/$defs/stringList" }
+                    }
+                  },
+                  "output": {},
+                  "outputs": { "type": "array", "minItems": 1 },
+                  "toolCalls": { "type": "array", "items": { "$ref": "#/$defs/toolCall" } }
+                }
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["baseUrl", "model"],
+          "properties": {
+            "type": { "const": "openai-compatible" },
+            "baseUrl": { "type": "string", "format": "uri", "pattern": "^https?://" },
+            "model": { "type": "string", "minLength": 1 },
+            "apiKeyEnv": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "description": "NAME of the environment variable holding your API key. Never the key itself."
+            },
+            "temperature": { "type": "number", "minimum": 0, "maximum": 2, "default": 0 },
+            "seed": { "type": "integer" },
+            "maxTokens": { "type": "integer", "minimum": 1 },
+            "timeoutMs": { "type": "integer", "minimum": 1, "default": 120000 },
+            "responseFormat": { "enum": ["text", "json"] },
+            "tools": { "type": "array", "items": { "type": "object" } },
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["command"],
+          "properties": {
+            "type": { "const": "command" },
+            "command": { "type": "string", "minLength": 1 },
+            "args": { "type": "array", "items": { "type": "string" } },
+            "cwd": { "type": "string", "minLength": 1 },
+            "timeoutMs": { "type": "integer", "minimum": 1, "default": 120000 },
+            "protocol": { "enum": ["text", "envelope"], "default": "text" },
+            "env": { "type": "object", "additionalProperties": { "type": "string" } },
+            "inheritEnv": { "type": "boolean", "default": true }
+          }
+        }
+      ]
+    }
+  }
+}

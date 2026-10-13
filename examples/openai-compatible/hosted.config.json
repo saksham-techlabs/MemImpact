@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "database-preference-hosted",
+  "task": "Design the database architecture for a new B2B SaaS product. Reply with JSON containing database, hosting and rationale.",
+  "memories": [
+    { "id": "database-preference", "content": "User prefers PostgreSQL over MongoDB." },
+    { "id": "hosting", "content": "Project is deployed on Vercel." }
+  ],
+  "variants": [
+    { "id": "remove-db-preference", "type": "remove", "memoryId": "database-preference" }
+  ],
+  "runner": {
+    "type": "openai-compatible",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "YOUR_MODEL_NAME",
+    "apiKeyEnv": "MEMIMPACT_API_KEY",
+    "temperature": 0,
+    "seed": 42,
+    "responseFormat": "json"
+  },
+  "repetitions": 3,
+  "compare": { "decisionPaths": ["database", "hosting"] },
+  "artifacts": { "storeMemoryContent": false }
+}

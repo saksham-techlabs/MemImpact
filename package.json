@@ -1,0 +1,61 @@
+{
+  "name": "memimpact",
+  "version": "0.1.0",
+  "description": "Local-first memory impact debugger for AI agents. Change one memory, replay the same task, see exactly what changed.",
+  "keywords": [
+    "ai",
+    "agents",
+    "llm",
+    "memory",
+    "evaluation",
+    "ablation",
+    "debugging",
+    "cli",
+    "byok"
+  ],
+  "license": "MIT",
+  "author": "Saksham Shrivastava",
+  "type": "module",
+  "bin": {
+    "memimpact": "dist/cli/main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema.json": "./schema/memimpact.config.schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build": "node scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "node scripts/clean.mjs .test-build && tsc -p tsconfig.test.json && node scripts/run-tests.mjs",
+    "validate:internal": "node scripts/validate-internal.mjs",
+    "smoke": "node scripts/smoke-pack.mjs",
+    "prepack": "npm run build",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run validate:internal && npm run smoke"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "name": "database-architecture",
+  "description": "Which stored memories drive the structured architecture decision?",
+  "task": "Design the database architecture for a new B2B SaaS product. Reply with JSON containing database, hosting, rationale and requestId.",
+  "memories": [
+    { "id": "database-preference", "content": "User prefers PostgreSQL over MongoDB." },
+    { "id": "hosting", "content": "Project is deployed on Vercel." },
+    { "id": "team", "content": "The team has four engineers." }
+  ],
+  "variants": [
+    {
+      "id": "remove-db-preference",
+      "type": "remove",
+      "memoryId": "database-preference",
+      "expect": { "minImpact": "high" }
+    },
+    {
+      "id": "switch-to-mysql",
+      "type": "modify",
+      "memoryId": "database-preference",
+      "find": "PostgreSQL",
+      "replaceWith": "MySQL",
+      "expect": { "minImpact": "high" }
+    },
+    {
+      "id": "remove-hosting",
+      "type": "remove",
+      "memoryId": "hosting",
+      "expect": { "minImpact": "high" }
+    },
+    {
+      "id": "remove-team-size",
+      "type": "remove",
+      "memoryId": "team",
+      "expect": { "maxImpact": "low" }
+    }
+  ],
+  "runner": {
+    "type": "fixture",
+    "rules": [
+      {
+        "when": { "contextIncludes": ["prefers PostgreSQL", "Vercel"] },
+        "outputs": [
+          { "database": "PostgreSQL", "hosting": "Vercel", "rationale": "Relational model with strong consistency, as the user prefers PostgreSQL.", "requestId": "req-001" },
+          { "database": "PostgreSQL", "hosting": "Vercel", "rationale": "Relational model with strong consistency, as the user prefers PostgreSQL.", "requestId": "req-002" }
+        ]
+      },
+      {
+        "when": { "contextIncludes": ["prefers MySQL", "Vercel"] },
+        "outputs": [
+          { "database": "MySQL", "hosting": "Vercel", "rationale": "Relational model on MySQL, matching the stated preference.", "requestId": "req-101" },
+          { "database": "MySQL", "hosting": "Vercel", "rationale": "Relational model on MySQL, matching the stated preference.", "requestId": "req-102" }
+        ]
+      },
+      {
+        "when": { "contextIncludes": ["prefers PostgreSQL"] },
+        "outputs": [
+          { "database": "PostgreSQL", "hosting": "AWS ECS", "rationale": "Relational model with strong consistency, as the user prefers PostgreSQL.", "requestId": "req-201" },
+          { "database": "PostgreSQL", "hosting": "AWS ECS", "rationale": "Relational model with strong consistency, as the user prefers PostgreSQL.", "requestId": "req-202" }
+        ]
+      },
+      {
+        "when": { "contextIncludes": ["Vercel"] },
+        "outputs": [
+          { "database": "MongoDB", "hosting": "Vercel", "rationale": "Flexible document model for a schema that is still evolving.", "requestId": "req-301" },
+          { "database": "MongoDB", "hosting": "Vercel", "rationale": "Flexible document model for a schema that is still evolving.", "requestId": "req-302" }
+        ]
+      },
+      {
+        "output": { "database": "MongoDB", "hosting": "AWS ECS", "rationale": "Flexible document model for a schema that is still evolving.", "requestId": "req-401" }
+      }
+    ]
+  },
+  "repetitions": 3,
+  "compare": {
+    "structured": "always",
+    "decisionPaths": ["database", "hosting"],
+    "ignorePaths": ["requestId"]
+  },
+  "artifacts": { "dir": ".memimpact" }
+}

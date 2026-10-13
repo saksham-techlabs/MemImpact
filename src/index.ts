@@ -1,0 +1,17 @@
+export * from "./types/index.js";
+export { loadConfig, DEFAULT_CONFIG_FILE } from "./config/load.js";
+export { validateConfig, DEFAULT_THRESHOLDS, type ValidationIssue, type ValidationResult } from "./config/validate.js";
+export { applyVariant, describeVariant } from "./mutations/apply.js";
+export { runExperiment, selectVariants, type RunOptions, type ProgressEvent } from "./experiments/run.js";
+export { compareRunSets, estimateNoise } from "./compare/aggregate.js";
+export { compareText, normalizeText, textSimilarity } from "./compare/text.js";
+export { compareStructured, extractJson, flattenJson } from "./compare/structured.js";
+export { compareToolCalls } from "./compare/tools.js";
+export { assessImpact, checkExpectation, DISCLAIMER } from "./core/impact.js";
+export { Redactor } from "./core/redact.js";
+export { EXIT_CODES, MemImpactError, ConfigError, UsageError, RunnerError } from "./core/errors.js";
+export { VERSION } from "./core/version.js";
+export { createRunner, FixtureRunner, CommandRunner, OpenAICompatibleRunner, renderPrompt } from "./runners/index.js";
+export { renderExperiment, renderCompare } from "./reporters/human.js";
+export { applyArtifactPrivacy, saveExperiment, loadExperiment, listExperiments } from "./storage/artifacts.js";
+export { runCli } from "./cli/app.js";

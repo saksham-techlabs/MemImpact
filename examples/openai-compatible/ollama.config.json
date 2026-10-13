@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "concise-preference-ollama",
+  "task": "Explain Docker.",
+  "memories": [
+    { "id": "answer-style", "content": "User prefers concise answers." },
+    { "id": "location", "content": "User is based in Berlin." }
+  ],
+  "variants": [
+    { "id": "remove-answer-style", "type": "remove", "memoryId": "answer-style" },
+    { "id": "remove-location", "type": "remove", "memoryId": "location" }
+  ],
+  "runner": {
+    "type": "openai-compatible",
+    "baseUrl": "http://localhost:11434/v1",
+    "model": "llama3.2",
+    "temperature": 0,
+    "seed": 42,
+    "timeoutMs": 180000
+  },
+  "repetitions": 3
+}

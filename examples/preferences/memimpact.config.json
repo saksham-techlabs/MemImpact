@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "name": "concise-preference",
+  "description": "Does the stored 'concise answers' preference actually change how the agent explains Docker?",
+  "task": "Explain Docker.",
+  "system": "You are a helpful engineering assistant.",
+  "memories": [
+    { "id": "answer-style", "content": "User prefers concise answers." },
+    { "id": "experience", "content": "User is an experienced backend developer." },
+    { "id": "location", "content": "User is based in Berlin." }
+  ],
+  "variants": [
+    {
+      "id": "remove-answer-style",
+      "type": "remove",
+      "memoryId": "answer-style",
+      "description": "Without the preference, answers should get longer",
+      "expect": { "minImpact": "medium" }
+    },
+    {
+      "id": "prefer-detailed",
+      "type": "replace",
+      "memoryId": "answer-style",
+      "content": "User prefers detailed answers with examples.",
+      "expect": { "minImpact": "medium" }
+    },
+    {
+      "id": "remove-location",
+      "type": "remove",
+      "memoryId": "location",
+      "description": "Irrelevant to the task; should have no effect",
+      "expect": { "maxImpact": "low" }
+    }
+  ],
+  "runner": {
+    "type": "fixture",
+    "rules": [
+      {
+        "when": { "contextIncludes": ["concise answers"] },
+        "output": "Docker packages an application and its dependencies into a container image that runs the same way on any machine. Build an image with `docker build`, start it with `docker run`."
+      },
+      {
+        "when": { "contextIncludes": ["detailed answers"] },
+        "output": "# What Docker is\nDocker is a platform for building and running applications in containers: isolated processes that share the host kernel but ship with their own filesystem and dependencies.\n\n## Images and containers\nAn image is a read-only template built from a Dockerfile. A container is a running instance of an image.\n\n## Example\n```Dockerfile\nFROM node:22-alpine\nWORKDIR /app\nCOPY . .\nRUN npm ci\nCMD [\"node\", \"server.js\"]\n```\nBuild it with `docker build -t my-api .` and run it with `docker run -p 3000:3000 my-api`.\n\n## Why it matters\nThe same image runs identically on a laptop, in CI and in production, which removes most environment drift."
+      },
+      {
+        "outputs": [
+          "# What Docker is\nDocker is a platform for packaging applications into containers, which are isolated processes bundled with their own filesystem and dependencies.\n\n## Images and containers\nYou describe an environment in a Dockerfile and build it into an image. Running an image creates a container.\n\n## Why it matters\nContainers behave the same on every machine, so builds are reproducible and deployments are predictable.",
+          "# What Docker is\nDocker is a platform for packaging applications into containers, which are isolated processes bundled with their own filesystem and dependencies.\n\n## Images and containers\nYou describe an environment in a Dockerfile and build it into an image. Starting an image creates a container.\n\n## Why it matters\nContainers behave the same on every machine, so builds are reproducible and deployments are predictable."
+        ]
+      }
+    ]
+  },
+  "repetitions": 3,
+  "artifacts": { "dir": ".memimpact" }
+}
