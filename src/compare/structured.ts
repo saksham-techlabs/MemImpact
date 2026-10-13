@@ -59,6 +59,29 @@ function tally(values: string[]): ValueCount[] {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([value, count]) => ({ value, count }));
 }
 
+/**
+ * Classifies how the values seen across baseline runs relate to those seen
+ * across variant runs.
+ * - unchanged: both sides produced the same set of values
+ * - changed: no value is shared, and the separation is not explainable by
+ *   within-condition variation: either each side produced a single value, or
+ *   one side reproduced the same value in every one of its (2+) runs
+ * - mixed: the sides share some values, or both sides vary internally so a
+ *   lack of overlap is what run-to-run variation alone would produce
+ */
+export function classifyValueSets(valuesA: readonly string[], valuesB: readonly string[]): { status: "unchanged" | "changed" | "mixed"; consistent: boolean } {
+  const setA = new Set(valuesA);
+  const setB = new Set(valuesB);
+  const consistent = setA.size === 1 && setB.size === 1;
+  const sameSet = setA.size === setB.size && [...setA].every((v) => setB.has(v));
+  if (sameSet) return { status: "unchanged", consistent };
+  const overlap = [...setA].some((v) => setB.has(v));
+  if (overlap) return { status: "mixed", consistent };
+  const stableA = setA.size === 1 && valuesA.length >= 2;
+  const stableB = setB.size === 1 && valuesB.length >= 2;
+  return { status: consistent || stableA || stableB ? "changed" : "mixed", consistent };
+}
+
 export interface StructuredDiffOptions {
   decisionPaths: string[];
   ignorePaths: string[];
@@ -66,11 +89,8 @@ export interface StructuredDiffOptions {
 
 /**
  * Compares the distribution of each leaf value across baseline runs and
- * variant runs.
- * - unchanged: both sides produced the same set of values (usually one value)
- * - changed/added/removed: no value is shared between the two sides
- *   (`consistent` = each side produced a single value every time)
- * - mixed: the sides share some values but not all
+ * variant runs using `classifyValueSets`. `added`/`removed` are `changed`
+ * fields that are missing on one side in every run.
  */
 export function compareStructured(
   baseline: JsonValue[],
@@ -91,18 +111,11 @@ export function compareStructured(
     }
     const valuesA = flatA.map((m) => m.get(path) ?? MISSING);
     const valuesB = flatB.map((m) => m.get(path) ?? MISSING);
-    const setA = new Set(valuesA);
-    const setB = new Set(valuesB);
-    const overlap = [...setA].some((v) => setB.has(v));
-    const sameSet = setA.size === setB.size && [...setA].every((v) => setB.has(v));
-    const consistent = setA.size === 1 && setB.size === 1;
-    let status: FieldStatus;
-    if (sameSet) status = "unchanged";
-    else if (!overlap) {
-      if (consistent && setA.has(MISSING)) status = "added";
-      else if (consistent && setB.has(MISSING)) status = "removed";
-      else status = "changed";
-    } else status = "mixed";
+    const classified = classifyValueSets(valuesA, valuesB);
+    const consistent = classified.consistent;
+    let status: FieldStatus = classified.status;
+    if (status === "changed" && consistent && valuesA[0] === MISSING) status = "added";
+    else if (status === "changed" && consistent && valuesB[0] === MISSING) status = "removed";
     const decision = options.decisionPaths.length === 0 || options.decisionPaths.some((p) => pathMatches(path, p));
     fields.push({ path, status, consistent, decision, baseline: tally(valuesA), variant: tally(valuesB) });
   }

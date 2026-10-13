@@ -60,9 +60,14 @@ each path's values across all baseline runs and all variant runs:
 | Status | Rule |
 | --- | --- |
 | `unchanged` | Both sides produced the same set of values |
-| `changed` | No value is shared between baseline and variant |
+| `changed` | No value is shared between baseline and variant, **and** either each side produced a single value, or one side produced the same value in every one of its runs (2 or more) |
 | `added` / `removed` | Like `changed`, but the path is missing on one side in every run |
-| `mixed` | The sides share some values but not all, which usually means noise |
+| `mixed` | The sides share some values but not all, **or** both sides vary from run to run. Either way the difference cannot be separated from run-to-run variation |
+
+The second `mixed` case matters for free-text fields such as a `reason`
+string. When a model words it differently on every run, baseline and variant
+never share a value, but that is what randomness alone produces. Such a field
+is `mixed`, not `changed`.
 
 A field is a **decision field** if it matches a path in `compare.decisionPaths`.
 A path matches when it is equal to an entry or nested under it. If
@@ -73,8 +78,10 @@ match `compare.ignorePaths` are excluded.
 
 This signal applies when the runner reports tool calls (OpenAI-compatible
 `tool_calls`, command-runner envelopes or fixtures). Each run's tool-call
-sequence, with names and arguments in order, becomes a signature. Signatures
-are compared with the same `unchanged` / `changed` / `mixed` rules as fields.
+sequence, with names and arguments in order, becomes a signature. The order
+of keys inside arguments is ignored. Signatures are compared with the same
+`unchanged` / `changed` / `mixed` rules as fields. A `mixed` tool-call status
+is reported as evidence but does not raise the level.
 
 ## Classification
 
@@ -102,9 +109,12 @@ Every assessment also reports an `attribution` value:
 | Value | Meaning |
 | --- | --- |
 | `no-difference` | Level is NONE and the outputs did not differ meaningfully |
-| `within-noise` | Level is NONE because the raw difference is no larger than the variation measured inside each condition |
+| `within-noise` | The differences are no larger than the variation measured inside each condition. The level is NONE, or LOW when the only signal is a `mixed` field |
 | `single-run` | One run per condition, so the effect cannot be separated from run-to-run variation |
-| `above-noise` | Multiple runs per condition and the difference exceeds the measured variation |
+| `above-noise` | Multiple runs per condition, and a field or tool-call sequence `changed`, or the noise-adjusted text distance reached the low threshold |
+
+`above-noise` means the difference was larger than the variation seen in
+*these* runs. It is not a statistical significance test.
 
 ## Example
 
@@ -126,6 +136,10 @@ because the decision field `database` changed from `"PostgreSQL"` to
   `decisionPaths` for decisions that matter.
 - The noise floor is estimated from a small number of runs. More repetitions
   give a better estimate.
+- Arrays in JSON are compared by index, so reordering a list shows up as
+  changed fields.
+- If `decisionPaths` is empty, every field counts as a decision field. Set
+  `decisionPaths` (and `ignorePaths` for free-text fields) for real models.
 - Text similarity is computed on the raw output, including JSON fields listed
   in `ignorePaths`. Varying ignored fields therefore raise the noise floor. This
   is conservative, not anti-conservative.

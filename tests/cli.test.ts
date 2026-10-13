@@ -206,6 +206,26 @@ describe("memimpact run", () => {
     const runsDir = path.join(cwd, ".memimpact", "runs");
     for (const file of readdirSync(runsDir)) assert.doesNotMatch(readFileSync(path.join(runsDir, file), "utf8"), new RegExp(secret));
   });
+
+  it("redacts secrets in progress lines for failed runs", () => {
+    const cwd = tempDir();
+    const secret = "progress-secret-test-value-0077";
+    writeFileSync(path.join(cwd, "fail.mjs"), "process.stderr.write('debug ' + process.env.PROGRESS_TOKEN); process.exit(1)", "utf8");
+    writeJson(path.join(cwd, "memimpact.config.json"), fixtureConfig({ runner: { type: "command", command: process.execPath, args: ["fail.mjs"] }, repetitions: 1 }));
+    const r = runCliProcess(["run", "--no-save"], { cwd, env: { PROGRESS_TOKEN: secret } });
+    assert.equal(r.code, 2);
+    assert.match(r.stderr, /FAILED: .*debug \[REDACTED\]/);
+    assert.doesNotMatch(r.stdout + r.stderr, new RegExp(secret));
+  });
+
+  it("rejects an unknown variant before announcing the run", () => {
+    const cwd = tempDir();
+    writeJson(path.join(cwd, "memimpact.config.json"), fixtureConfig());
+    const r = runCliProcess(["run", "--variant", "nope"], { cwd });
+    assert.equal(r.code, 2);
+    assert.doesNotMatch(r.stderr, /Running/);
+    assert.match(r.stderr, /Unknown variant "nope"/);
+  });
 });
 
 describe("memimpact compare / list / show", () => {
@@ -220,6 +240,9 @@ describe("memimpact compare / list / show", () => {
     assert.match(r.stdout, /Only in baseline: postgresql, relational/);
     assert.equal(runCliProcess(["compare", "a.txt", "b.txt", "--fail-on", "medium"], { cwd }).code, 1);
     assert.equal(runCliProcess(["compare", "a.txt", "a.txt", "--fail-on", "low"], { cwd }).code, 0);
+    const dir = runCliProcess(["compare", ".", "a.txt"], { cwd });
+    assert.equal(dir.code, 2);
+    assert.match(dir.stderr, /is not a file/);
   });
 
   it("compares structured JSON files", () => {

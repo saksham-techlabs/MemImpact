@@ -52,6 +52,14 @@ secrets in memories or tasks.
 - The command you configure runs with your user's permissions. Only configure
   commands you trust. Treat a `memimpact.config.json` from an untrusted source
   like any other script you would run.
+- By default the command inherits your full environment, including API keys.
+  Set `runner.inheritEnv` to `false` to pass only `PATH`, `HOME`, temp
+  directories and similar system variables.
+- For `openai-compatible` runners, the config decides which environment
+  variable (`apiKeyEnv`, default `MEMIMPACT_API_KEY`) is sent as a Bearer token
+  and to which `baseUrl`. Check both before running a config you did not write.
+- On timeout, MemImpact terminates the process it started. Child processes
+  that your command spawned itself may keep running, particularly on Windows.
 
 ### No side effects
 

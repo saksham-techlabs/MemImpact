@@ -34,6 +34,7 @@ describe("secret redaction", () => {
     }
     assert.equal(redactor.redact("Authorization: Bearer abc.def.ghi-123456"), `Authorization: Bearer ${REDACTED}`);
     assert.equal(looksLikeSecret("User prefers PostgreSQL"), false);
+    assert.equal(looksLikeSecret("The API uses Bearer authentication for every request."), false);
   });
 
   it("redacts deeply nested structures without mutating the input", () => {
@@ -85,5 +86,24 @@ describe("run artifacts", () => {
     assert.deepEqual(stored.privacy, { memoryContentStored: false, outputsStored: false });
     assert.ok(stored.variants[0]?.impact?.evidence.some((e) => e.includes("(values omitted)")));
     assert.match(JSON.stringify(result), /PostgreSQL over MongoDB/, "original result is untouched");
+  });
+
+  it("omits Markdown section titles taken from outputs", async () => {
+    const loaded = await loadFrom(
+      fixtureConfig({
+        runner: {
+          type: "fixture",
+          rules: [
+            { when: { memoryPresent: ["db"] }, output: "## Private heading alpha\nUse PostgreSQL." },
+            { output: "## Private heading beta\nUse MongoDB." },
+          ],
+        },
+      }),
+    );
+    const result = await runExperiment(loaded, { runner: createRunner(loaded) });
+    assert.match(JSON.stringify(result), /Private heading/);
+    const stored = applyArtifactPrivacy(result, { storeMemoryContent: true, storeOutputs: false });
+    assert.doesNotMatch(JSON.stringify(stored), /Private heading/);
+    assert.doesNotMatch(renderExperiment(stored), /Private heading/);
   });
 });

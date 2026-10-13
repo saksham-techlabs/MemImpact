@@ -22,7 +22,7 @@ Data leaves your machine only through the runner **you** configure:
 | `fixture` | Nowhere. Fully offline |
 | `openai-compatible` with a `localhost` / `127.0.0.1` / `::1` URL | Your local server |
 | `openai-compatible` with any other URL | That provider, using your API key. MemImpact prints a notice to stderr at the start of each `memimpact run` |
-| `command` | The program you configured. It may forward data elsewhere, and MemImpact prints a notice saying so |
+| `command` | The program you configured. It may forward data elsewhere, and MemImpact prints a notice saying so. Unless `inheritEnv` is `false`, the program also receives your full environment, including API keys |
 
 Each run sends the task, the optional system prompt and the content of the
 memories in that condition.
@@ -42,6 +42,12 @@ To reduce what is stored:
 ```json
 "artifacts": { "storeMemoryContent": false, "storeOutputs": false }
 ```
+
+With these options, memory content, outputs, structured values, tool-call
+arguments, distinctive terms and Markdown section titles are replaced by a
+short hash and length. Memory IDs, JSON field paths, tool names, the task and
+the system prompt are still stored. The options apply to saved files only;
+console and `--json` output still show everything.
 
 You can also pass `--no-save` or set `"artifacts": { "save": false }` to write
 nothing. You can delete `.memimpact/` at any time.

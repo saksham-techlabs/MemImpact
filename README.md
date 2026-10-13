@@ -274,7 +274,7 @@ will be optional and BYOK.
 | --- | --- |
 | **HIGH** | A decision field changed, **or** the tool-call sequence changed, **or** the noise-adjusted text distance is ≥ 0.5 |
 | **MEDIUM** | Adjusted text distance ≥ 0.2, **or** a non-decision JSON field changed |
-| **LOW** | Adjusted text distance ≥ 0.05, **or** a JSON field is *mixed* (baseline and variant share some values but not all) |
+| **LOW** | Adjusted text distance ≥ 0.05, **or** a JSON field is *mixed* (values overlap between conditions, or vary within both) |
 | **NONE** | Otherwise, including differences that are within the measured noise |
 
 `adjusted distance = max(0, (1 − mean cross-condition similarity) − noise floor)`.
@@ -300,11 +300,15 @@ is how MemImpact handles randomness:
   larger than the noise is classified NONE, with the evidence basis
   "within measured run-to-run variation".
 - **Consistency for structured data.** A field counts as *changed* only if no
-  value is shared between the baseline runs and the variant runs. Partially
-  overlapping values are reported as *mixed*. A mixed field can raise the level
-  to LOW at most.
+  value is shared between the baseline runs and the variant runs, and the
+  values are stable on at least one side. Partially overlapping values, and
+  values that vary on both sides (such as a free-text `reason` worded
+  differently on every run), are reported as *mixed*. A mixed field can raise
+  the level to LOW at most, and that LOW is labelled `within-noise`.
 - **Explicit evidence basis.** Each verdict is labelled `single-run`,
-  `above-noise`, `within-noise` or `no-difference`.
+  `above-noise`, `within-noise` or `no-difference`. `above-noise` compares the
+  difference with the variation seen in your runs; it is not a statistical
+  significance test.
 
 Use `repetitions: 3` or more with real models. With `repetitions: 1`, the
 report states that the memory's effect cannot be separated from run-to-run
@@ -384,8 +388,10 @@ The `compare` arguments are file paths or saved-run references of the form
 - Artifacts stay in `.memimpact/`, which contains a `.gitignore` with `*`, so
   nothing in it is committed by accident.
 - `artifacts.storeMemoryContent: false` and `artifacts.storeOutputs: false`
-  replace sensitive text in saved artifacts with hashes. `--no-save` writes
-  nothing at all.
+  replace sensitive text in saved artifacts with hashes. Memory IDs, JSON field
+  paths, tool names and the task are still stored. `--no-save` writes nothing
+  at all. These options affect saved files only, not console or `--json`
+  output.
 - Your config, your `memoriesFile` and your memory stores are read-only to
   MemImpact.
 
@@ -403,6 +409,12 @@ Details: [docs/privacy.md](docs/privacy.md).
 - **No shell.** The command runner uses `spawn` with `shell: false`, so `args`
   are never shell-expanded. Each process runs with a timeout and a 10 MB output
   cap.
+- **Your command sees your environment.** By default the command runner
+  inherits your full environment, including API keys, because most agents need
+  them. Set `"inheritEnv": false` to pass only a minimal system environment.
+- **A config is code.** A config chooses which command runs and which
+  environment variable is sent as an API key to which `baseUrl`. Review a
+  config from someone else before you run it.
 - **No side effects on your systems.** MemImpact never executes model tool
   calls, edits memory stores, pushes code or deploys anything.
 

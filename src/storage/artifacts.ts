@@ -42,6 +42,8 @@ export function applyArtifactPrivacy(result: ExperimentResult, options: Pick<Art
       v.runs.forEach(scrub);
       if (v.comparison) {
         v.comparison.terms = { baselineOnly: [], variantOnly: [] };
+        const sections = v.comparison.representative.sections;
+        if (sections) v.comparison.representative.sections = sections.map((s) => ({ ...s, title: omitted(s.title) }));
         if (v.comparison.structured) {
           for (const f of v.comparison.structured.fields) {
             f.baseline = f.baseline.map((x) => ({ ...x, value: omitted(x.value) }));

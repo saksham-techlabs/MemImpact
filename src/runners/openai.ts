@@ -56,6 +56,20 @@ function parseToolCalls(raw: unknown): ToolCall[] | undefined {
   return calls;
 }
 
+/** `content` is a string, null, or (on some servers) an array of `{ type: "text", text }` parts. */
+function parseContent(raw: unknown): string | undefined {
+  if (typeof raw === "string") return raw;
+  if (!Array.isArray(raw)) return undefined;
+  const texts = raw.flatMap((part) => (typeof part === "string" ? [part] : isObj(part) && typeof part["text"] === "string" ? [part["text"]] : []));
+  return texts.length > 0 ? texts.join("") : undefined;
+}
+
+function describeFetchError(error: unknown): string {
+  const cause = (error as { cause?: { code?: unknown; message?: unknown } }).cause;
+  const detail = typeof cause?.code === "string" ? cause.code : typeof cause?.message === "string" ? cause.message : "";
+  return detail ? `${errorMessage(error)} (${detail})` : errorMessage(error);
+}
+
 function parseUsage(raw: unknown): Usage | undefined {
   if (!isObj(raw)) return undefined;
   const usage: Usage = {};
@@ -120,7 +134,9 @@ export class OpenAICompatibleRunner implements Runner {
     if (this.apiKey) headers["authorization"] = `Bearer ${this.apiKey}`;
 
     const timeoutMs = this.config.timeoutMs ?? DEFAULT_OPENAI_TIMEOUT_MS;
+    const endpoint = safeEndpoint(this.config.baseUrl);
     let response: Response;
+    let text: string;
     try {
       response = await fetch(url, {
         method: "POST",
@@ -128,14 +144,14 @@ export class OpenAICompatibleRunner implements Runner {
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
       });
+      text = await response.text();
     } catch (error) {
       const name = (error as Error).name;
       if (name === "TimeoutError" || name === "AbortError") {
-        throw new RunnerError(`Request to ${safeEndpoint(this.config.baseUrl)} timed out after ${timeoutMs}ms`);
+        throw new RunnerError(`Request to ${endpoint} timed out after ${timeoutMs}ms`);
       }
-      throw new RunnerError(`Request to ${safeEndpoint(this.config.baseUrl)} failed: ${errorMessage(error)}`);
+      throw new RunnerError(`Request to ${endpoint} failed: ${describeFetchError(error)}`);
     }
-    const text = await response.text();
     if (!response.ok) {
       throw new RunnerError(`Provider returned HTTP ${response.status} ${response.statusText}`.trim(), [text.slice(0, 500)]);
     }
@@ -143,16 +159,21 @@ export class OpenAICompatibleRunner implements Runner {
     try {
       data = JSON.parse(text);
     } catch {
-      throw new RunnerError("Provider returned a non-JSON response", [text.slice(0, 200)]);
+      throw new RunnerError("Provider returned a non-JSON response (streaming responses are not supported)", [text.slice(0, 200)]);
     }
     if (!isObj(data) || !Array.isArray(data["choices"]) || !isObj(data["choices"][0])) {
-      throw new RunnerError("Provider response has no choices[0]");
+      const providerError = isObj(data) && isObj(data["error"]) && typeof data["error"]["message"] === "string" ? data["error"]["message"] : undefined;
+      throw new RunnerError("Provider response has no choices[0]", providerError ? [providerError.slice(0, 500)] : []);
     }
     const choice = data["choices"][0];
     const message = isObj(choice["message"]) ? choice["message"] : {};
-    const content = message["content"];
-    const result: RunnerResult = { output: typeof content === "string" ? content : "" };
+    const content = parseContent(message["content"]);
     const toolCalls = parseToolCalls(message["tool_calls"]);
+    if (content === undefined && !toolCalls?.length) {
+      const reason = typeof choice["finish_reason"] === "string" ? ` (finish_reason: ${choice["finish_reason"]})` : "";
+      throw new RunnerError(`Provider response has no message content or tool calls${reason}`);
+    }
+    const result: RunnerResult = { output: content ?? "" };
     if (toolCalls) result.toolCalls = toolCalls;
     const usage = parseUsage(data["usage"]);
     if (usage) result.usage = usage;

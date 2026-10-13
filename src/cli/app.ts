@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs, type ParseArgsConfig } from "node:util";
@@ -9,7 +9,7 @@ import { EXIT_CODES, MemImpactError, UsageError, errorMessage } from "../core/er
 import { assessImpact, DISCLAIMER, levelRank } from "../core/impact.js";
 import { Redactor } from "../core/redact.js";
 import { VERSION } from "../core/version.js";
-import { EXPERIMENT_ID_PATTERN, runExperiment, type ProgressEvent } from "../experiments/run.js";
+import { EXPERIMENT_ID_PATTERN, runExperiment, selectVariants, type ProgressEvent } from "../experiments/run.js";
 import { renderCompare, renderExperiment, renderExperimentList } from "../reporters/human.js";
 import { renderJson } from "../reporters/json.js";
 import { shouldUseColor } from "../reporters/style.js";
@@ -179,11 +179,11 @@ async function cmdValidate(io: CliIO, values: Values): Promise<number> {
   return EXIT_CODES.ok;
 }
 
-function progressPrinter(io: CliIO): (event: ProgressEvent) => void {
+function progressPrinter(io: CliIO, redactor: Redactor): (event: ProgressEvent) => void {
   return (event) => {
     if (event.type !== "run-end") return;
     const r = event.record;
-    const status = r.status === "ok" ? "ok" : `FAILED: ${r.error ?? "error"}`;
+    const status = r.status === "ok" ? "ok" : `FAILED: ${redactor.redact(r.error ?? "error")}`;
     io.stderr(`  ${event.condition} #${event.repetition}/${event.total} ${status} (${r.durationMs}ms)`);
   };
 }
@@ -199,6 +199,12 @@ async function cmdRun(io: CliIO, values: Values): Promise<number> {
   }
   const json = Boolean(values["json"]);
   const quiet = Boolean(values["quiet"]);
+  const selection = {
+    variantIds: values["variant"] as string[] | undefined,
+    memoryIds: values["memory"] as string[] | undefined,
+    all: Boolean(values["all"]),
+  };
+  selectVariants(loaded, selection);
   const redactor = new Redactor({ envNames: secretEnvNames(loaded), env: io.env });
   const runner = createRunner(loaded, io.env);
   const info = runner.info();
@@ -216,10 +222,8 @@ async function cmdRun(io: CliIO, values: Values): Promise<number> {
   const raw = await runExperiment(loaded, {
     runner,
     repetitions,
-    variantIds: values["variant"] as string[] | undefined,
-    memoryIds: values["memory"] as string[] | undefined,
-    all: Boolean(values["all"]),
-    onProgress: !json && !quiet ? progressPrinter(io) : undefined,
+    ...selection,
+    onProgress: !json && !quiet ? progressPrinter(io, redactor) : undefined,
   });
   const result = redactor.redactDeep(raw);
 
@@ -253,6 +257,7 @@ const RUN_REF = /^([^:]+):([A-Za-z0-9][A-Za-z0-9._-]*)(?:#(\d+))?$/;
 async function resolveCompareInput(io: CliIO, values: Values, ref: string): Promise<{ label: string; run: RunRecord }> {
   const file = path.resolve(io.cwd, ref);
   if (existsSync(file)) {
+    if (!statSync(file).isFile()) throw new UsageError(`${ref} is not a file`);
     const text = await readFile(file, "utf8");
     try {
       if (isExperimentResult(JSON.parse(text))) {

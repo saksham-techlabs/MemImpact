@@ -229,6 +229,53 @@ describe("openai-compatible runner", () => {
     );
   });
 
+  it("joins array-form message content and rejects replies with no content", async () => {
+    await withServer(
+      () => ({ status: 200, body: { choices: [{ message: { content: [{ type: "text", text: "Use " }, { type: "text", text: "PostgreSQL." }] } }] } }),
+      async (baseUrl) => {
+        const runner = new OpenAICompatibleRunner({ type: "openai-compatible", baseUrl, model: "m" }, {});
+        assert.equal((await runner.run(input([]))).output, "Use PostgreSQL.");
+      },
+    );
+    await withServer(
+      () => ({ status: 200, body: { choices: [{ message: { content: null }, finish_reason: "length" }] } }),
+      async (baseUrl) => {
+        const runner = new OpenAICompatibleRunner({ type: "openai-compatible", baseUrl, model: "m" }, {});
+        await assert.rejects(runner.run(input([])), /no message content or tool calls \(finish_reason: length\)/);
+      },
+    );
+  });
+
+  it("reports provider error messages returned with HTTP 200", async () => {
+    await withServer(
+      () => ({ status: 200, body: { error: { message: "model not loaded" } } }),
+      async (baseUrl) => {
+        const runner = new OpenAICompatibleRunner({ type: "openai-compatible", baseUrl, model: "m" }, {});
+        await assert.rejects(runner.run(input([])), (error: unknown) => {
+          assert.match(String((error as Error).message), /no choices/);
+          assert.deepEqual((error as { details: string[] }).details, ["model not loaded"]);
+          return true;
+        });
+      },
+    );
+  });
+
+  it("times out while the response body is still streaming", async () => {
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.write('{"choices":');
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const runner = new OpenAICompatibleRunner({ type: "openai-compatible", baseUrl: `http://127.0.0.1:${port}/v1`, model: "m", timeoutMs: 200 }, {});
+      await assert.rejects(runner.run(input([])), /timed out after 200ms/);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it("times out", async () => {
     const server = createServer(() => {
       /* never respond */

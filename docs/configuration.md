@@ -135,10 +135,10 @@ block, and one user message containing `task`.
 | `command` | required | Executable: on `PATH` (e.g. `node`, `python3`) or an absolute path. It runs **without a shell** |
 | `args` | `[]` | Arguments, passed verbatim |
 | `cwd` | config dir | Working directory, relative to the config file |
-| `timeoutMs` | `120000` | The process is killed after this |
+| `timeoutMs` | `120000` | The process is killed after this. Processes it spawned itself may keep running |
 | `protocol` | `"text"` | `"text"`: stdout is the output. `"envelope"`: stdout is `{ "output", "toolCalls"?, "usage"?, "model"? }` |
 | `env` | — | Extra non-secret environment variables. Secret-looking names are rejected; export those in your shell instead |
-| `inheritEnv` | `true` | When `false`, only a minimal system environment is passed (`PATH`, `HOME`, temp dirs, …) |
+| `inheritEnv` | `true` | When `true`, the command receives your full environment, including API keys. When `false`, only a minimal system environment is passed (`PATH`, `HOME`, temp dirs, …) |
 
 The input arrives on stdin as JSON:
 `{ memimpact: 1, task, system, memories, prompt: { system, user }, repetition }`.
@@ -155,7 +155,7 @@ underlying program instead (e.g. `node script.js`), or use
 | --- | --- | --- |
 | `structured` | `"auto"` | `auto`: compare JSON when every output contains JSON. `always`: same, but add a note when parsing fails. `never`: text only |
 | `decisionPaths` | `[]` | JSON paths whose change means HIGH. An empty list treats every field as a decision field |
-| `ignorePaths` | `[]` | JSON paths excluded from structured comparison, e.g. ids and timestamps |
+| `ignorePaths` | `[]` | JSON paths excluded from structured comparison, e.g. ids, timestamps and free-text explanations |
 
 Paths use dot and bracket notation: `database`, `services[0].name`,
 `a["key with spaces"]`. A pattern also matches every path nested under it.
@@ -167,7 +167,7 @@ Paths use dot and bracket notation: `database`, `services[0].name`,
 | `dir` | `.memimpact` | Relative to the config file |
 | `save` | `true` | Set `false`, or pass `--no-save`, to write nothing |
 | `storeMemoryContent` | `true` | `false` replaces memory text in artifacts with `[omitted sha256:… length:…]` |
-| `storeOutputs` | `true` | `false` replaces outputs, field values and tool arguments in artifacts with hashes. `compare` cannot use these runs |
+| `storeOutputs` | `true` | `false` replaces outputs, field values, tool arguments, distinctive terms and Markdown section titles in artifacts with hashes. `compare` cannot use these runs |
 
 These privacy options affect files on disk only. Console and `--json` output
 always show full results.

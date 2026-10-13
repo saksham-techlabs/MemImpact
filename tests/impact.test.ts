@@ -95,6 +95,55 @@ describe("impact classification", () => {
     assert.equal(impact.attribution, "within-noise");
   });
 
+  it("does not rate a free-text JSON field that differs on every run as a change", () => {
+    const out = (decision: string, reason: string): string => JSON.stringify({ decision, reason });
+    const impact = assess(
+      [out("approve", "this appears to be fine"), out("approve", "no problems were detected here"), out("approve", "acceptable given the situation")],
+      [out("approve", "looks fine overall to me"), out("approve", "nothing concerning was found"), out("approve", "seems acceptable in context")],
+    );
+    assert.notEqual(impact.level, "high", impact.evidence.join("\n"));
+    assert.equal(impact.signals.structuredDecisionChanges, 0);
+    assert.notEqual(impact.attribution, "above-noise");
+  });
+
+  it("labels a LOW that rests only on mixed fields as within noise", () => {
+    const out = (decision: string): string => JSON.stringify({ decision, note: "same text in every run" });
+    const impact = assess([out("approve"), out("approve"), out("approve")], [out("approve"), out("approve"), out("review")]);
+    assert.equal(impact.level, "low", impact.evidence.join("\n"));
+    assert.equal(impact.attribution, "within-noise");
+    assert.match(impact.evidence[0] ?? "", /also vary between repetitions/);
+  });
+
+  it("counts a change when one side is stable across runs and the other never matches it", () => {
+    const impact = assess(
+      [JSON.stringify({ db: "PostgreSQL" }), JSON.stringify({ db: "PostgreSQL" }), JSON.stringify({ db: "PostgreSQL" })],
+      [JSON.stringify({ db: "MongoDB" }), JSON.stringify({ db: "DynamoDB" }), JSON.stringify({ db: "MongoDB" })],
+    );
+    assert.equal(impact.level, "high");
+    assert.equal(impact.attribution, "above-noise");
+  });
+
+  it("does not rate tool arguments that vary on every run as a tool-call change", () => {
+    const calls = (q: string): ToolCall[] => [{ name: "search", arguments: { q } }];
+    const comparison = compareRunSets(
+      [run(LONG_A, calls("postgres docs")), run(LONG_A, calls("postgresql manual")), run(LONG_A, calls("pg reference"))],
+      [run(LONG_A, calls("database docs")), run(LONG_A, calls("db manual")), run(LONG_A, calls("sql reference"))],
+      opts,
+    );
+    assert.equal(comparison.tools?.status, "mixed");
+    const impact = assessImpact(comparison, DEFAULT_THRESHOLDS);
+    assert.equal(impact.level, "none");
+  });
+
+  it("ignores argument key order when comparing tool calls", () => {
+    const comparison = compareRunSets(
+      [run(LONG_A, [{ name: "lookup", arguments: { q: "db", limit: 3 } }])],
+      [run(LONG_A, [{ name: "lookup", arguments: { limit: 3, q: "db" } }])],
+      opts,
+    );
+    assert.equal(comparison.tools?.status, "unchanged");
+  });
+
   it("subtracts the noise floor from the raw distance", () => {
     const base = ["alpha beta gamma delta epsilon", "alpha beta gamma delta zeta"];
     const variant = ["one two three four five", "one two three four six"];

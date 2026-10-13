@@ -29,6 +29,7 @@ function formatValues(values: { value: string; count: number }[]): string {
  * MEDIUM : adjustedDistance >= thresholds.medium, OR a non-decision field changed
  * LOW    : adjustedDistance >= thresholds.low, OR fields vary in a mixed way
  * NONE   : otherwise (including differences that fall within the measured noise)
+ * A LOW that rests only on mixed fields is attributed "within-noise".
  * Text identical after normalization yields adjustedDistance 0, but structured
  * and tool-call changes are still evaluated (normalization is case-insensitive).
  */
@@ -54,7 +55,7 @@ export function assessImpact(comparison: VariantComparison, thresholds: ImpactTh
   if (toolsChanged && comparison.tools) {
     evidence.push(`Tool calls changed: ${formatValues(comparison.tools.baseline)} → ${formatValues(comparison.tools.variant)}`);
   } else if (comparison.tools?.status === "mixed") {
-    evidence.push("Tool calls varied across repetitions in a way that overlaps between conditions");
+    evidence.push("Tool calls varied across repetitions, so the difference between conditions cannot be separated from run-to-run variation");
   }
 
   const noiseText =
@@ -76,6 +77,7 @@ export function assessImpact(comparison: VariantComparison, thresholds: ImpactTh
     level = "none";
   }
 
+  const separatedFromNoise = decisionChanges.length > 0 || otherChanges.length > 0 || toolsChanged || noise.adjustedDistance >= thresholds.low;
   let attribution: Attribution;
   if (level === "none") {
     attribution = noise.noiseFloor !== null && noise.rawDistance >= thresholds.low ? "within-noise" : "no-difference";
@@ -84,8 +86,11 @@ export function assessImpact(comparison: VariantComparison, thresholds: ImpactTh
     else evidence.unshift("Differences are below the low threshold");
   } else if (!multiRun) {
     attribution = "single-run";
-  } else {
+  } else if (separatedFromNoise) {
     attribution = "above-noise";
+  } else {
+    attribution = "within-noise";
+    evidence.unshift("The only differences are values that also vary between repetitions of the same condition");
   }
 
   return {

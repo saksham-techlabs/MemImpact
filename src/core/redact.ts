@@ -1,7 +1,7 @@
 export const REDACTED = "[REDACTED]";
 
 const SECRET_PATTERNS: readonly { source: string; flags: string; replacement: string }[] = [
-  { source: String.raw`\bBearer\s+[A-Za-z0-9._~+/-]{8,}=*`, flags: "g", replacement: `Bearer ${REDACTED}` },
+  { source: String.raw`\bBearer\s+(?=[A-Za-z0-9._~+/-]*\d)[A-Za-z0-9._~+/-]{16,}=*`, flags: "g", replacement: `Bearer ${REDACTED}` },
   { source: String.raw`\bsk-[A-Za-z0-9_-]{16,}`, flags: "g", replacement: REDACTED },
   { source: String.raw`\bgh[pousr]_[A-Za-z0-9]{20,}`, flags: "g", replacement: REDACTED },
   { source: String.raw`\bgithub_pat_[A-Za-z0-9_]{20,}`, flags: "g", replacement: REDACTED },
